@@ -1,29 +1,45 @@
 # autoTradingSystem
 
-Minimal-yet-serious auto-trading sandbox built to highlight the core skills expected from a senior Java engineer: distributed locking, Kafka-based order flow, strategy-driven automation, and an opinionated React console. Business scope stays tiny so you can focus on deep technical narratives in interviews.
+autoTradingSystem is a compact, event-driven trading sandbox that keeps the business scope intentionally tiny so you can concentrate on senior-level engineering topics: Kafka-backed order flow, Redis locks, concurrency-aware strategy automation, and a React console that surfaces just the trading panels that matter.
 
-## What's Included
-- **Strategy Studio** - create reusable strategy definitions (fixed-amount DCA, grid buy) with JSON parameters, cron windows, and throttle guards backed by `ConcurrentHashMap`.
-- **Event-Driven Order Lifecycle** - every order publishes to Kafka (`trading.orders.submitted`), is filled asynchronously, and updates executions + positions.
-- **Redis & Concurrency Controls** - Redis handles idempotency + distributed locks while custom throttles showcase advanced `ConcurrentMap` usage.
-- **Lean Frontend** - only the panels that matter (strategies, orders, positions) built with React + TS + Ant Design.
+## Purpose
+- Showcase production-inspired primitives (Kafka, Redis, PostgreSQL, distributed locks, scheduling) in a way that is easy to narrate during interviews or architecture reviews.
+- Provide a safe lab for iterating on strategy automation patterns—manual orders and scheduled strategies share the same pipeline, so every improvement carries over end-to-end.
+- Deliver a reproducible environment (Docker Compose + Gradle + Vite) that can run locally or on a remote dev box with identical topology.
 
-## Tech Stack Highlights
-- **Backend:** Java 17, Spring Boot 3 (Web/Data/Scheduling), Spring Kafka, Redis, Flyway, Testcontainers, Gradle Kotlin DSL.
-- **Data & Messaging:** PostgreSQL 16 for persistence, Redis for locks/caching, Kafka 3.x for order/event streams.
-- **Frontend:** React 18, TypeScript, Vite, Ant Design, React Query for polling/mutations.
-- **Ops:** Docker Compose topology (Postgres, Redis, Kafka, Zookeeper, backend, frontend) for one-command spin up.
+## System Highlights
+- **Strategy Studio**: JSON-defined strategies (fixed-amount DCA, grid buy) with cron windows, enable/disable flags, and throttles backed by `StrategyThrottleRegistry`.
+- **Event-Driven Order Lifecycle**: `OrderService` enforces Redis idempotency, persists orders, and publishes to Kafka topic `trading.orders.submitted`; asynchronous listeners simulate fills, update executions/positions, and emit latency metrics.
+- **Concurrency & Risk Controls**: Redis locks plus in-memory throttles prevent duplicate strategy runs, while `clientOrderId` uniqueness guards manual or automated flows.
+- **Portfolio State & Observability**: Positions, executions, and optional latency metrics are persisted in PostgreSQL; lightweight controllers expose REST endpoints for strategies/orders/executions/positions/metrics.
+- **Lean React Console**: React 18 + Ant Design + React Query render strategy, order, and position panes with 3-second polling so you can narrate the flow without UI bloat.
 
-## Running Locally
+## Architecture & Tech Stack
+- **Backend**: Java 17, Spring Boot 3 (Web, Data JPA, Scheduling, Validation), Spring Kafka, Redis client, Flyway migrations, Testcontainers-backed tests, Gradle Kotlin DSL build.
+- **Data & Messaging**: PostgreSQL 16 for relational state, Redis 7 for locks/idempotency, Kafka 3.7 (Zookeeper 3.9) for the order event bus; optional metrics table ready for future observability work.
+- **Frontend**: React 18, TypeScript, Vite tooling, Ant Design components, React Query for polling/mutations, and axios-based API helpers.
+- **Ops**: Docker Compose spins up Zookeeper, Kafka, Postgres, Redis, backend, and frontend with sensible defaults; `.env` style overrides map 1:1 to `application.yml`.
+
+## Engineering Notes
+- Strategy execution is delegated to handler plugins (`FixedAmountDcaHandler`, `GridBuyStrategyHandler`) so you can add new strategy shapes without touching scheduling code.
+- Kafka listeners (`OrderEventListener`, `OrderFillProcessor`) rely on an `InMemoryPriceCache` to simulate fills and keep throughput predictable for demos.
+- `StrategyScheduler` combines cron expressions, Redis locks, and throttles to ensure strategies trigger safely even across multiple nodes.
+- REST surface area stays small on purpose: `POST /api/strategies`, `POST /api/strategies/{id}/run-now`, `POST /api/orders`, `GET /api/orders`, `GET /api/executions`, `GET /api/positions`, and supporting lookup endpoints for accounts/instruments/metrics.
+- Latency metrics are recorded through `LatencyMetricService` to illustrate how you would extend the system with Prometheus or custom dashboards later.
+
+## Runbook
 ```bash
-# Start infra + apps (requires Docker)
+# Full stack (needs Docker)
 docker-compose up --build
 
-# Or run services individually
-cd backend && ./gradlew bootRun
-cd frontend && npm install && npm run dev
+# Backend only (expects local Postgres/Redis/Kafka)
+cd backend
+./gradlew bootRun
+
+# Frontend only (point VITE_BACKEND_URL to your API)
+cd frontend
+npm install
+npm run dev
 ```
 
-Configure Kafka/Redis/Postgres via environment variables (see `application.yml`). Default dev setup expects everything on localhost (see compose file for reference).
-
-Use this project as a talking-point hub: explain the event pipeline, concurrency guards, and how each subsystem would evolve in a production trading stack. Keep extending strategies or wiring a real broker adapter when you're ready.
+See `application.yml`, `docker-compose.yml`, and `trading-mvp-brief.md` for environment variables, topic names, and data model references. `docs/career-brief.md` and `trading-mvp-brief.md` double as talking-point aides when presenting the system.
