@@ -1,8 +1,7 @@
 package com.autotrading.tradingmvp.domain.model;
 
-public enum PlanStatus {
+public enum StrategyStatus {
     ACTIVE,
     PAUSED,
-    COMPLETED,
-    CANCELLED
+    ARCHIVED
 }

@@ -1,17 +1,16 @@
 import { Layout, Tabs, Typography } from "antd";
-import { PlansView } from "./views/PlansView";
 import { OrdersView } from "./views/OrdersView";
 import { PositionsView } from "./views/PositionsView";
-import { MetricsView } from "./views/MetricsView";
+import { StrategiesView } from "./views/StrategiesView";
 
 const { Header, Content } = Layout;
 
 function App() {
   const tabItems = [
     {
-      key: "plans",
-      label: "DCA Plans",
-      children: <PlansView />
+      key: "strategies",
+      label: "Strategy Studio",
+      children: <StrategiesView />
     },
     {
       key: "orders",
@@ -22,11 +21,6 @@ function App() {
       key: "positions",
       label: "Positions",
       children: <PositionsView />
-    },
-    {
-      key: "metrics",
-      label: "Latency Metrics",
-      children: <MetricsView />
     }
   ];
 
@@ -45,9 +39,9 @@ function App() {
       </Header>
       <Content style={{ padding: 24 }}>
         <Typography.Paragraph>
-          Monitor and operate your automated DCA and strategy orders.
+          Focus on reusable strategies, their resulting orders, and live positions—no extra clutter.
         </Typography.Paragraph>
-        <Tabs defaultActiveKey="plans" items={tabItems} />
+        <Tabs defaultActiveKey="strategies" items={tabItems} />
       </Content>
     </Layout>
   );

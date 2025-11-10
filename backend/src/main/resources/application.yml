@@ -17,6 +17,18 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: trading-mvp
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    template:
+      default-topic: trading.orders.submitted
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -38,3 +50,5 @@ trading:
     p50-latency: 150ms
     partial-fill-rate: 0.05
     reject-rate: 0.02
+  strategy:
+    min-window-seconds: 30

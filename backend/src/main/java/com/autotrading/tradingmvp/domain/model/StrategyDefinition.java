@@ -13,16 +13,21 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "dca_plan")
-public class DcaPlan {
+@Table(name = "strategy_definition")
+public class StrategyDefinition {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 128)
+    private String name;
+
+    @Column(length = 512)
+    private String description;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_id")
@@ -32,8 +37,13 @@ public class DcaPlan {
     @JoinColumn(name = "instrument_id")
     private Instrument instrument;
 
-    @Column(name = "cash_amount", nullable = false, precision = 18, scale = 4)
-    private BigDecimal cashAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private StrategyType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private StrategyStatus status = StrategyStatus.ACTIVE;
 
     @Column(nullable = false, length = 64)
     private String cron;
@@ -44,16 +54,11 @@ public class DcaPlan {
     @Column(name = "end_at")
     private OffsetDateTime endAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private PlanStatus status = PlanStatus.ACTIVE;
-
     @Column(name = "last_run_at")
     private OffsetDateTime lastRunAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "holiday_policy", nullable = false, length = 32)
-    private HolidayPolicy holidayPolicy = HolidayPolicy.NEXT_BUSINESS_DAY;
+    @Column(name = "parameters_json", columnDefinition = "TEXT")
+    private String parametersJson;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
@@ -61,20 +66,28 @@ public class DcaPlan {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    protected DcaPlan() {
+    protected StrategyDefinition() {
         // for JPA
     }
 
-    public DcaPlan(Account account, Instrument instrument, BigDecimal cashAmount, String cron,
-                   OffsetDateTime startAt, OffsetDateTime endAt, PlanStatus status, HolidayPolicy holidayPolicy) {
+    public StrategyDefinition(String name,
+                              Account account,
+                              Instrument instrument,
+                              StrategyType type,
+                              String cron,
+                              StrategyStatus status,
+                              OffsetDateTime startAt,
+                              OffsetDateTime endAt,
+                              String parametersJson) {
+        this.name = name;
         this.account = account;
         this.instrument = instrument;
-        this.cashAmount = cashAmount;
+        this.type = type;
         this.cron = cron;
+        this.status = status;
         this.startAt = startAt;
         this.endAt = endAt;
-        this.status = status;
-        this.holidayPolicy = holidayPolicy;
+        this.parametersJson = parametersJson;
     }
 
     @PrePersist
@@ -93,6 +106,22 @@ public class DcaPlan {
         return id;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public Account getAccount() {
         return account;
     }
@@ -109,12 +138,20 @@ public class DcaPlan {
         this.instrument = instrument;
     }
 
-    public BigDecimal getCashAmount() {
-        return cashAmount;
+    public StrategyType getType() {
+        return type;
     }
 
-    public void setCashAmount(BigDecimal cashAmount) {
-        this.cashAmount = cashAmount;
+    public void setType(StrategyType type) {
+        this.type = type;
+    }
+
+    public StrategyStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(StrategyStatus status) {
+        this.status = status;
     }
 
     public String getCron() {
@@ -141,14 +178,6 @@ public class DcaPlan {
         this.endAt = endAt;
     }
 
-    public PlanStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PlanStatus status) {
-        this.status = status;
-    }
-
     public OffsetDateTime getLastRunAt() {
         return lastRunAt;
     }
@@ -157,12 +186,12 @@ public class DcaPlan {
         this.lastRunAt = lastRunAt;
     }
 
-    public HolidayPolicy getHolidayPolicy() {
-        return holidayPolicy;
+    public String getParametersJson() {
+        return parametersJson;
     }
 
-    public void setHolidayPolicy(HolidayPolicy holidayPolicy) {
-        this.holidayPolicy = holidayPolicy;
+    public void setParametersJson(String parametersJson) {
+        this.parametersJson = parametersJson;
     }
 
     public OffsetDateTime getCreatedAt() {

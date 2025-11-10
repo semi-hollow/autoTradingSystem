@@ -1,16 +1,3 @@
-export interface Plan {
-  id: number;
-  accountId: number;
-  instrumentId: number;
-  cashAmount: number;
-  cron: string;
-  startAt: string;
-  endAt?: string;
-  status: "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
-  lastRunAt?: string;
-  holidayPolicy: "SKIP" | "NEXT_BUSINESS_DAY";
-}
-
 export type OrderStatus =
   | "PENDING_SUBMIT"
   | "SUBMITTED"
@@ -22,9 +9,11 @@ export type OrderStatus =
 export interface Order {
   id: number;
   clientOrderId: string;
-  planId?: number;
   accountId: number;
   instrumentId: number;
+  strategyId?: number;
+  strategyName?: string;
+  strategyTag?: string;
   side: "BUY" | "SELL";
   type: "MARKET" | "LIMIT";
   qty?: number;
@@ -53,8 +42,31 @@ export interface Position {
   updatedAt: string;
 }
 
-export interface LatencyMetric {
-  stage: string;
-  latencyMs: number;
-  timestamp: string;
+export type StrategyType = "FIXED_AMOUNT_DCA" | "GRID_BUY";
+
+export type StrategyStatus = "ACTIVE" | "PAUSED" | "ARCHIVED";
+
+export interface Strategy {
+  id: number;
+  name: string;
+  description?: string;
+  accountId: number;
+  instrumentId: number;
+  type: StrategyType;
+  status: StrategyStatus;
+  cron: string;
+  startAt: string;
+  endAt?: string;
+  lastRunAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  parameters: Record<string, unknown>;
+}
+
+export type StrategyTrigger = "MANUAL" | "SCHEDULED";
+
+export interface StrategyRunResponse {
+  strategy: Strategy;
+  trigger: StrategyTrigger;
+  orders: Order[];
 }

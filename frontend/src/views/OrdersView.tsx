@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -14,7 +14,7 @@ import {
 } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
-import type { Execution, Order } from "../api/types";
+import type { Execution, Order, Strategy } from "../api/types";
 
 const orderSides = [
   { label: "Buy", value: "BUY" },
@@ -52,6 +52,14 @@ export function OrdersView() {
     queryFn: async () => {
       const response = await apiClient.get("/api/instruments");
       return response.data as Array<{ id: number; symbol: string }>;
+    }
+  });
+
+  const { data: strategies } = useQuery({
+    queryKey: ["strategies"],
+    queryFn: async () => {
+      const response = await apiClient.get<Strategy[]>("/api/strategies");
+      return response.data;
     }
   });
 
@@ -120,6 +128,10 @@ export function OrdersView() {
                 order.instrumentId
             },
             {
+              title: "Strategy",
+              render: (_, order) => order.strategyName ?? order.strategyTag ?? "-"
+            },
+            {
               title: "Side",
               dataIndex: "side"
             },
@@ -171,6 +183,7 @@ export function OrdersView() {
         onCancel={() => setOpenModal(false)}
         accounts={accounts ?? []}
         instruments={instruments ?? []}
+        strategies={strategies ?? []}
         onCreate={(payload) => createOrderMutation.mutate(payload)}
       />
     </Space>
@@ -217,6 +230,7 @@ interface OrderModalProps {
   onCreate: (payload: unknown) => void;
   accounts: Array<{ id: number; name: string }>;
   instruments: Array<{ id: number; symbol: string }>;
+  strategies: Strategy[];
 }
 
 function OrderModal({
@@ -224,15 +238,27 @@ function OrderModal({
   onCancel,
   onCreate,
   accounts,
-  instruments
+  instruments,
+  strategies
 }: OrderModalProps) {
   const [form] = Form.useForm();
+  const selectedStrategyId = Form.useWatch("strategyId", form);
+
+  useEffect(() => {
+    if (!selectedStrategyId) {
+      form.setFieldsValue({ strategy: undefined });
+      return;
+    }
+    const matched = strategies.find((strategy) => strategy.id === selectedStrategyId);
+    if (matched) {
+      form.setFieldsValue({ strategy: matched.name });
+    }
+  }, [selectedStrategyId, strategies, form]);
 
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
       const payload = {
-        planId: values.planId || null,
         accountId: values.accountId,
         instrumentId: values.instrumentId,
         side: values.side,
@@ -240,7 +266,8 @@ function OrderModal({
         qty: values.qty || null,
         cashAmount: values.cashAmount || null,
         limitPrice: values.limitPrice || null,
-        strategy: values.strategy || "MANUAL"
+        strategy: values.strategy || "MANUAL",
+        strategyId: values.strategyId || null
       };
       onCreate(payload);
       form.resetFields();
@@ -305,11 +332,18 @@ function OrderModal({
           <InputNumber min={0} precision={4} style={{ width: "100%" }} />
         </Form.Item>
         <Form.Item
-          label="Plan reference (optional)"
-          name="planId"
-          tooltip="Link to an existing plan"
+          label="Link strategy (optional)"
+          name="strategyId"
+          tooltip="Associate this order with a reusable strategy definition"
         >
-          <Input />
+          <Select
+            allowClear
+            placeholder="Select strategy"
+            options={strategies.map((strategy) => ({
+              label: `${strategy.name} (${strategy.type})`,
+              value: strategy.id
+            }))}
+          />
         </Form.Item>
         <Form.Item label="Strategy tag" name="strategy">
           <Input placeholder="e.g. GRID, MANUAL" />

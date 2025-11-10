@@ -9,9 +9,11 @@ import java.time.OffsetDateTime;
 public record OrderResponse(
         Long id,
         String clientOrderId,
-        Long planId,
         Long accountId,
         Long instrumentId,
+        Long strategyId,
+        String strategyName,
+        String strategyTag,
         OrderSide side,
         OrderType type,
         BigDecimal qty,

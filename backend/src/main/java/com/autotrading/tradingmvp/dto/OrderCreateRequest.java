@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public record OrderCreateRequest(
-        Long planId,
         @NotNull Long accountId,
         @NotNull Long instrumentId,
         @NotNull OrderSide side,
@@ -15,6 +14,7 @@ public record OrderCreateRequest(
         @DecimalMin(value = "0.00") BigDecimal qty,
         @DecimalMin(value = "0.00") BigDecimal cashAmount,
         @DecimalMin(value = "0.00") BigDecimal limitPrice,
-        String strategy
+        String strategy,
+        Long strategyId
 ) {
 }

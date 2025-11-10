@@ -27,10 +27,6 @@ public class Order {
     @Column(name = "client_order_id", nullable = false, unique = true, length = 64)
     private String clientOrderId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "plan_id")
-    private DcaPlan plan;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_id")
     private Account account;
@@ -38,6 +34,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "instrument_id")
     private Instrument instrument;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "strategy_id")
+    private StrategyDefinition strategy;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 8)
@@ -60,6 +60,9 @@ public class Order {
     @Column(nullable = false, length = 32)
     private OrderStatus status = OrderStatus.PENDING_SUBMIT;
 
+    @Column(name = "strategy_tag", length = 64)
+    private String strategyTag;
+
     @Column(length = 512)
     private String reason;
 
@@ -73,10 +76,9 @@ public class Order {
         // for JPA
     }
 
-    public Order(String clientOrderId, DcaPlan plan, Account account, Instrument instrument,
+    public Order(String clientOrderId, Account account, Instrument instrument,
                  OrderSide side, OrderType type) {
         this.clientOrderId = clientOrderId;
-        this.plan = plan;
         this.account = account;
         this.instrument = instrument;
         this.side = side;
@@ -107,14 +109,6 @@ public class Order {
         this.clientOrderId = clientOrderId;
     }
 
-    public DcaPlan getPlan() {
-        return plan;
-    }
-
-    public void setPlan(DcaPlan plan) {
-        this.plan = plan;
-    }
-
     public Account getAccount() {
         return account;
     }
@@ -129,6 +123,14 @@ public class Order {
 
     public void setInstrument(Instrument instrument) {
         this.instrument = instrument;
+    }
+
+    public StrategyDefinition getStrategy() {
+        return strategy;
+    }
+
+    public void setStrategy(StrategyDefinition strategy) {
+        this.strategy = strategy;
     }
 
     public OrderSide getSide() {
@@ -177,6 +179,14 @@ public class Order {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public String getStrategyTag() {
+        return strategyTag;
+    }
+
+    public void setStrategyTag(String strategyTag) {
+        this.strategyTag = strategyTag;
     }
 
     public String getReason() {

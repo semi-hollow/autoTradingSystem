@@ -4,23 +4,24 @@ import com.autotrading.tradingmvp.adapter.Ack;
 import com.autotrading.tradingmvp.adapter.BrokerAdapter;
 import com.autotrading.tradingmvp.adapter.PlaceOrderCommand;
 import com.autotrading.tradingmvp.domain.model.Account;
-import com.autotrading.tradingmvp.domain.model.DcaPlan;
 import com.autotrading.tradingmvp.domain.model.Instrument;
 import com.autotrading.tradingmvp.domain.model.Order;
 import com.autotrading.tradingmvp.domain.model.OrderSide;
 import com.autotrading.tradingmvp.domain.model.OrderStatus;
 import com.autotrading.tradingmvp.domain.model.OrderType;
+import com.autotrading.tradingmvp.domain.model.StrategyDefinition;
 import com.autotrading.tradingmvp.domain.repository.AccountRepository;
-import com.autotrading.tradingmvp.domain.repository.DcaPlanRepository;
 import com.autotrading.tradingmvp.domain.repository.InstrumentRepository;
 import com.autotrading.tradingmvp.domain.repository.OrderRepository;
+import com.autotrading.tradingmvp.domain.repository.StrategyDefinitionRepository;
 import com.autotrading.tradingmvp.dto.OrderCreateRequest;
 import com.autotrading.tradingmvp.dto.OrderResponse;
+import com.autotrading.tradingmvp.orderflow.OrderEventPublisher;
+import com.autotrading.tradingmvp.orderflow.OrderSubmittedEvent;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,22 +37,25 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final AccountRepository accountRepository;
     private final InstrumentRepository instrumentRepository;
-    private final DcaPlanRepository planRepository;
     private final BrokerAdapter brokerAdapter;
     private final StringRedisTemplate redisTemplate;
+    private final StrategyDefinitionRepository strategyRepository;
+    private final OrderEventPublisher orderEventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         AccountRepository accountRepository,
                         InstrumentRepository instrumentRepository,
-                        DcaPlanRepository planRepository,
                         BrokerAdapter brokerAdapter,
-                        StringRedisTemplate redisTemplate) {
+                        StringRedisTemplate redisTemplate,
+                        StrategyDefinitionRepository strategyRepository,
+                        OrderEventPublisher orderEventPublisher) {
         this.orderRepository = orderRepository;
         this.accountRepository = accountRepository;
         this.instrumentRepository = instrumentRepository;
-        this.planRepository = planRepository;
         this.brokerAdapter = brokerAdapter;
         this.redisTemplate = redisTemplate;
+        this.strategyRepository = strategyRepository;
+        this.orderEventPublisher = orderEventPublisher;
     }
 
     @Transactional
@@ -61,14 +65,12 @@ public class OrderService {
         Instrument instrument = instrumentRepository.findById(request.instrumentId())
                 .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.instrumentId()));
 
-        DcaPlan plan = Optional.ofNullable(request.planId())
-                .flatMap(planRepository::findById)
-                .orElse(null);
+        StrategyDefinition strategy = resolveStrategy(request.strategyId());
 
-        String clientOrderId = generateClientOrderId(request, plan);
+        String clientOrderId = generateClientOrderId(request);
         ensureClientOrderIdIsUnique(clientOrderId);
 
-        Order order = new Order(clientOrderId, plan, account, instrument, request.side(), request.type());
+        Order order = new Order(clientOrderId, account, instrument, request.side(), request.type());
         if (request.qty() != null) {
             order.setQty(request.qty());
         }
@@ -77,6 +79,12 @@ public class OrderService {
         }
         if (request.limitPrice() != null) {
             order.setLimitPrice(request.limitPrice());
+        }
+        order.setStrategy(strategy);
+        if (request.strategy() != null && !request.strategy().isBlank()) {
+            order.setStrategyTag(request.strategy());
+        } else if (strategy != null) {
+            order.setStrategyTag(strategy.getName());
         }
         order.setStatus(OrderStatus.PENDING_SUBMIT);
 
@@ -99,6 +107,7 @@ public class OrderService {
             saved.setReason(ack.message());
         } else {
             saved.setStatus(OrderStatus.SUBMITTED);
+            publishSubmittedEvent(saved);
         }
         log.info("Order submitted clientOrderId={} status={}", saved.getClientOrderId(), saved.getStatus());
         return toResponse(saved);
@@ -147,9 +156,9 @@ public class OrderService {
         }
     }
 
-    private String generateClientOrderId(OrderCreateRequest request, DcaPlan plan) {
-        if (plan != null) {
-            return "plan-" + plan.getId() + "-" + System.currentTimeMillis();
+    private String generateClientOrderId(OrderCreateRequest request) {
+        if (request.strategyId() != null) {
+            return "strategy-" + request.strategyId() + "-" + System.currentTimeMillis();
         }
         return UUID.randomUUID().toString();
     }
@@ -158,9 +167,11 @@ public class OrderService {
         return new OrderResponse(
                 order.getId(),
                 order.getClientOrderId(),
-                order.getPlan() != null ? order.getPlan().getId() : null,
                 order.getAccount().getId(),
                 order.getInstrument().getId(),
+                order.getStrategy() != null ? order.getStrategy().getId() : null,
+                order.getStrategy() != null ? order.getStrategy().getName() : null,
+                order.getStrategyTag(),
                 order.getSide(),
                 order.getType(),
                 order.getQty(),
@@ -171,5 +182,29 @@ public class OrderService {
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );
+    }
+
+    private StrategyDefinition resolveStrategy(Long strategyId) {
+        if (strategyId == null) {
+            return null;
+        }
+        return strategyRepository.findById(strategyId)
+                .orElseThrow(() -> new IllegalArgumentException("Strategy not found: " + strategyId));
+    }
+
+    private void publishSubmittedEvent(Order order) {
+        OrderSubmittedEvent event = new OrderSubmittedEvent(
+                order.getId(),
+                order.getClientOrderId(),
+                order.getAccount().getId(),
+                order.getInstrument().getId(),
+                order.getSide().name(),
+                order.getType().name(),
+                order.getQty(),
+                order.getCashAmount(),
+                order.getLimitPrice(),
+                OffsetDateTime.now()
+        );
+        orderEventPublisher.publish(event);
     }
 }
